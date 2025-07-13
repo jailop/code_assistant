@@ -1,7 +1,7 @@
 mod gitproject;
-mod editor;
 mod config;
 mod ollama_client;
+mod prompt_builder;
 
 use clap::Parser;
 
@@ -32,15 +32,13 @@ fn main() {
     if args.yes {
         println!("Automatic confirmation is enabled. All prompts will be skipped.");
     }
-    let content = editor::read_file(&args.filename);
-    match content {
-        Ok(data) => {
-            println!("File content read successfully.");
-            println!("Content length: {}", data.len());
-        }
-        Err(e) => {
-            eprintln!("Failed to read file: {}", e);
-            std::process::exit(1);
-        }
-    }
+    let prompt = prompt_builder::build_prompt(&args.filename, &args.prompt).unwrap_or_else(|e| {
+        eprintln!("Error building prompt: {}", e);
+        std::process::exit(1);
+    });
+    let response = ollama_client::generate(&prompt).unwrap_or_else(|e| {
+        eprintln!("Error generating response: {}", e);
+        std::process::exit(1);
+    });
+    termimad::print_inline(&response);
 }

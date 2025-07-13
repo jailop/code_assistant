@@ -8,7 +8,6 @@ fn prepare_payload(config: Config, prompt: &str) -> Value {
         "system": config.system_prompt,
         "temperature": config.temperature.unwrap_or(0.1), 
     });
-    println!("Prepared payload: {}", result);
     result
 }
 
@@ -16,12 +15,16 @@ fn request(prompt: &str) -> Result<String, String> {
     let config = Config::load("config.json")?;
     let url = format!("{}/api/generate", config.server_address);
     let payload = prepare_payload(config, prompt);
-    let response = ureq::post(&url)
+    let request = ureq::post(&url)
         .header("Content-Type", "application/json")
-        .send_json(payload).map_err(|e| format!("Request failed: {}", e))?
-        .body_mut()
-        .read_to_string();
-    match response {
+        .send_json(payload);
+    let resp = match request {
+        Ok(mut response) => response
+            .body_mut()
+            .read_to_string(),
+        Err(e) => return Err(format!("Request failed: {}", e)),
+    };
+    match resp {
         Ok(body) => {
             Ok(body)
         },
@@ -56,7 +59,7 @@ mod tests {
     #[test]
     fn test_request() {
         let prompt = "Just reply: done";
-        let result = request(prompt);
+        let result = request(&prompt);
         if let Err(e) = &result {
             eprintln!("Request failed: {}", e);
         }
