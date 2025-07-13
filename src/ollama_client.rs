@@ -1,28 +1,21 @@
 use serde_json::{json, Value};
 use crate::config::Config;
 
-fn prepare_payload(config: Config, prompt: &str, content: &str) -> Value {
-    let user_prompt = format!("Process this code edition request. In your answer, return the edited code and the explanation about the changes performed on it:\n
-        -------\n
-        {}:\n
-        -------\n
-        ```{}```", prompt, content);
+fn prepare_payload(config: Config, prompt: &str) -> Value {
     let result = json!({
         "model": config.model,
-        "prompt": user_prompt,
+        "prompt": prompt,
         "system": config.system_prompt,
-        "temperature": 0.1
+        "temperature": config.temperature.unwrap_or(0.1), 
     });
     println!("Prepared payload: {}", result);
     result
 }
 
-fn request(prompt: &str, content: &str) -> Result<String, String> {
+fn request(prompt: &str) -> Result<String, String> {
     let config = Config::load("config.json")?;
     let url = format!("{}/api/generate", config.server_address);
-    println!("Requesting URL: {}", url);
-    let payload = prepare_payload(config, prompt, content);
-        
+    let payload = prepare_payload(config, prompt);
     let response = ureq::post(&url)
         .header("Content-Type", "application/json")
         .send_json(payload).map_err(|e| format!("Request failed: {}", e))?
@@ -30,15 +23,14 @@ fn request(prompt: &str, content: &str) -> Result<String, String> {
         .read_to_string();
     match response {
         Ok(body) => {
-            println!("Response body: {}", body);
             Ok(body)
         },
         Err(e) => Err(format!("Failed to read response: {}", e)),
     }
 }
 
-pub fn generate(prompt: &str, content: &str) -> Result<String, String> {
-    let response = request(prompt, content)?;
+pub fn generate(prompt: &str) -> Result<String, String> {
+    let response = request(prompt)?;
     let parts = response.split("\n").collect::<Vec<&str>>();
     let mut content = String::new();
     for part in parts {
@@ -50,7 +42,6 @@ pub fn generate(prompt: &str, content: &str) -> Result<String, String> {
             }
         }
     }
-    println!("Generated content: {}", content);
     if content.is_empty() {
         Err("No content generated".to_string())
     } else {
@@ -64,11 +55,10 @@ mod tests {
     
     #[test]
     fn test_request() {
-        let prompt = "Fix this code in Python";
-        let content = "print('Hello world'')')";
-        let result = request(prompt, content);
-        if result.is_err() {
-            eprintln!("Request failed: {}", result.as_ref().err().unwrap());
+        let prompt = "Just reply: done";
+        let result = request(prompt);
+        if let Err(e) = &result {
+            eprintln!("Request failed: {}", e);
         }
         assert!(result.is_ok(), "Request should succeed");
         let response = result.unwrap();
@@ -77,12 +67,8 @@ mod tests {
 
     #[test]
     fn test_generate() {
-        let prompt = "Fix this code in Python";
-        let content = "print('Hello world'')')";
-        let result = generate(prompt, content);
-        if result.is_err() {
-            eprintln!("Generate failed: {}", result.as_ref().err().unwrap());
-        }
+        let prompt = "Just reply: done";
+        let result = generate(prompt);
         assert!(result.is_ok(), "Generate should succeed");
         let response = result.unwrap();
         assert!(!response.is_empty(), "Generated content should not be empty");

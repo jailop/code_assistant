@@ -5,6 +5,7 @@ pub struct Config {
     pub server_address: String,
     pub model: String,
     pub system_prompt: String,
+    pub temperature: Option<f32>,
 }
 
 impl Config {
