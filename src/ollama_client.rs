@@ -11,8 +11,7 @@ fn prepare_payload(config: Config, prompt: &str) -> Value {
     result
 }
 
-fn request(prompt: &str) -> Result<String, String> {
-    let config = Config::load("config.json")?;
+fn request(config: Config, prompt: &str) -> Result<String, String> {
     let url = format!("{}/api/generate", config.server_address);
     let payload = prepare_payload(config, prompt);
     let request = ureq::post(&url)
@@ -32,8 +31,8 @@ fn request(prompt: &str) -> Result<String, String> {
     }
 }
 
-pub fn generate(prompt: &str) -> Result<String, String> {
-    let response = request(prompt)?;
+pub fn generate(config: Config, prompt: &str) -> Result<String, String> {
+    let response = request(config, prompt)?;
     let parts = response.split("\n").collect::<Vec<&str>>();
     let mut content = String::new();
     for part in parts {
@@ -58,8 +57,10 @@ mod tests {
     
     #[test]
     fn test_request() {
+        let config_path = "config-example.json";
+        let config = Config::load(config_path).expect("Failed to load config");
         let prompt = "Just reply: done";
-        let result = request(&prompt);
+        let result = request(config, &prompt);
         if let Err(e) = &result {
             eprintln!("Request failed: {}", e);
         }
@@ -71,7 +72,9 @@ mod tests {
     #[test]
     fn test_generate() {
         let prompt = "Just reply: done";
-        let result = generate(prompt);
+        let config_path = "config-example.json";
+        let config = Config::load(config_path).expect("Failed to load config");
+        let result = generate(config, prompt);
         assert!(result.is_ok(), "Generate should succeed");
         let response = result.unwrap();
         assert!(!response.is_empty(), "Generated content should not be empty");

@@ -16,6 +16,8 @@ struct Args {
     dry_run: bool,
     #[arg(short, long, help = "Automatic confirmation, skip all prompts")]
     yes: bool,
+    #[arg(long, help = "Optional configuration file path")]
+    config: Option<String>,
 }
 
 fn main() {
@@ -32,11 +34,25 @@ fn main() {
     if args.yes {
         println!("Automatic confirmation is enabled. All prompts will be skipped.");
     }
+    let config_dir = dirs::home_dir().unwrap_or_else(|| {
+        eprintln!("Could not determine home directory.");
+        std::process::exit(1);
+    }).join(".config");
+    if !config_dir.exists() && let Err(e) = std::fs::create_dir_all(&config_dir) {
+        eprintln!("Error creating configuration directory: {}", e);
+        std::process::exit(1);
+    }
+    let default_config_path = config_dir.join("code-assistant.json");
+    let config_path = args.config.as_deref().unwrap_or(default_config_path.to_str().unwrap());
+    let config = config::Config::load(config_path).unwrap_or_else(|e| {
+        eprintln!("Error loading configuration: {}", e);
+        std::process::exit(1);
+    });
     let prompt = prompt_builder::build_prompt(&args.filename, &args.prompt).unwrap_or_else(|e| {
         eprintln!("Error building prompt: {}", e);
         std::process::exit(1);
     });
-    let response = ollama_client::generate(&prompt).unwrap_or_else(|e| {
+    let response = ollama_client::generate(config, &prompt).unwrap_or_else(|e| {
         eprintln!("Error generating response: {}", e);
         std::process::exit(1);
     });

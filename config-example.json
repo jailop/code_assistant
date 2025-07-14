@@ -1,5 +1,5 @@
 {
     "server_address": "http://localhost:11434",
-    "model": "llama3.2",
+    "model": "llama3",
     "system_prompt": "You are a coding assistant"
 }
